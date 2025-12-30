@@ -585,4 +585,82 @@ function M.declarations(opts, ctx)
   return M.get_locations("textDocument/declaration", opts, ctx.filter)
 end
 
+---@param opts snacks.picker.lsp.Config
+---@type snacks.picker.finder
+function M.inlay_hint_locations(opts, ctx)
+  local filter = ctx.filter
+  local buf = filter.current_buf
+  local win = filter.current_win
+  local cursor_pos = vim.api.nvim_win_get_cursor(win)
+
+  -- reuse the cached hints in `vim.lsp.inlay_hint`.
+  local hints = vim.lsp.inlay_hint.get({
+    range = {
+      start = { line = cursor_pos[1] - 1, character = cursor_pos[2] },
+      ["end"] = { line = cursor_pos[1] - 1, character = cursor_pos[2] + 1 },
+    },
+    bufnr = buf,
+  })
+
+  ---@type snacks.picker.finder.result
+  return function(cb)
+    ---@type table<string, true>
+    local unique_lines = {}
+
+    local requester = R:new()
+
+    --- Checks the following on the `hint`:
+    --- 1. whether its label is `labelparts`. If it's a string, it doesn't contain `location`.
+    --- 2. whether the client supports `inlayHint/resolve`. If so, make a request for it to resolve for full info (incl. `location`).
+    --- 3. for each of the labelparts, deduplicate and build the picker item
+    ---@param hint lsp.InlayHint
+    ---@param client vim.lsp.Client
+    local function process_hint(hint, client)
+      --- takes a resolved `hint` object and build the picker items on the `location`s.
+      ---@param label lsp.InlayHintLabelPart
+      local function process_labelpart(label)
+        if label.location then
+          if opts.unique_lines then
+            local loc_identifer =
+              string.format("%s:%d:%s", label.location.uri, label.location.range.start.line, label.value)
+            if unique_lines[loc_identifer] then
+              return
+            else
+              unique_lines[loc_identifer] = true
+            end
+          end
+
+          local item =
+            { text = string.format("%s:%s", vim.uri_to_fname(label.location.uri), label.value), line = label.value }
+          M.add_loc(item, label.location, client)
+          cb(item)
+        end
+      end
+
+      local label = hint.label
+      if type(label) == "string" then
+        return
+      else
+        if client:supports_method("inlayHint/resolve", buf) then
+          requester:request(client, "inlayHint/resolve", function()
+            return hint
+          end, function(_client, _result, _params)
+            vim.tbl_map(process_labelpart, label)
+          end)
+        else
+          vim.tbl_map(process_labelpart, label)
+        end
+      end
+    end
+
+    for _, obj in ipairs(hints) do
+      local client = vim.lsp.get_client_by_id(obj.client_id)
+      if client then
+        process_hint(obj.inlay_hint, client)
+      end
+    end
+    requester:wait()
+  end
+end
+
 return M

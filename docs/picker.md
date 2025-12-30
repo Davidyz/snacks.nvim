@@ -1966,6 +1966,23 @@ vim.tbl_extend("force", {}, M.lsp_symbols, {
 })
 ```
 
+### `lsp_inlay_hint_locations`
+
+```vim
+:lua Snacks.picker.lsp_inlay_hint_locations(opts?)
+```
+
+```lua
+---@type snacks.picker.lsp.Config
+{
+  finder = "lsp_inlay_hint_locations",
+  format = "file",
+  auto_confirm = true,
+  unique_lines = true,
+  jump = { tagstack = true, reuse_win = true },
+}
+```
+
 ### `man`
 
 ```vim

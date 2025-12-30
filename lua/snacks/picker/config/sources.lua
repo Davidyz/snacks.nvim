@@ -727,6 +727,15 @@ M.lsp_references = {
   jump = { tagstack = true, reuse_win = true },
 }
 
+---@type snacks.picker.lsp.Config
+M.lsp_inlay_hint_locations = {
+  finder = "lsp_inlay_hint_locations",
+  format = "file",
+  auto_confirm = true,
+  unique_lines = true,
+  jump = { tagstack = true, reuse_win = true },
+}
+
 -- LSP document symbols
 ---@class snacks.picker.lsp.symbols.Config: snacks.picker.Config
 ---@field tree? boolean show symbol tree
